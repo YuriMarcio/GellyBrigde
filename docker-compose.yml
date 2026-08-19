@@ -3,8 +3,8 @@ services:
     build: .
     image: flowbridge:latest
     restart: unless-stopped
-    ports:
-      - "${PORT:-3000}:3000"
+    expose:
+      - "3000"
     env_file:
       - .env
     environment:
@@ -19,3 +19,9 @@ services:
       timeout: 3s
       start_period: 5s
       retries: 3
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
