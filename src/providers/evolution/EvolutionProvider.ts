@@ -39,7 +39,11 @@ export class EvolutionProvider implements CommunicationProvider {
     const axiosInstance = axios.create({
       baseURL: config.baseUrl.replace(/\/$/, ''),
       timeout: config.timeout ?? 15_000,
-      headers: { apikey: config.apiKey, 'Content-Type': 'application/json' },
+      headers: {
+        apikey: config.apiKey,
+        'Content-Type': 'application/json',
+        Origin: 'https://gellybridge.zapediu.com',
+      },
     });
 
     this.http = new ProviderHttpClient({
