@@ -79,6 +79,29 @@ describe('EvolutionProvider', () => {
     expect(http['post']).not.toHaveBeenCalled();
   });
 
+  it('getMediaBase64 busca a mídia decriptada pelo messageId, sem mediaKey/remoteJid', async () => {
+    const http = getAxios(provider);
+    http['post']!.mockResolvedValueOnce({
+      data: { base64: 'QUFB', mimetype: 'audio/ogg; codecs=opus', mediaType: 'audioMessage' },
+    });
+
+    const result = await provider.getMediaBase64('inst-01', 'MSG123');
+
+    expect(http['post']).toHaveBeenCalledWith('/chat/getBase64FromMediaMessage/inst-01', {
+      message: { key: { id: 'MSG123' } },
+      convertToMp4: false,
+    });
+    expect(result.base64).toBe('QUFB');
+    expect(result.mimetype).toBe('audio/ogg; codecs=opus');
+  });
+
+  it('getMediaBase64 lança erro se a resposta vier sem base64/mimetype', async () => {
+    const http = getAxios(provider);
+    http['post']!.mockResolvedValueOnce({ data: { mediaType: 'audioMessage' } });
+
+    await expect(provider.getMediaBase64('inst-01', 'MSG123')).rejects.toThrow();
+  });
+
   it('connect cria a instância e busca o QR code', async () => {
     const http = getAxios(provider);
     http['post']!.mockResolvedValueOnce({ data: { instance: { instanceName: 'inst-01' } } });

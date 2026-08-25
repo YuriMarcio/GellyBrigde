@@ -8,6 +8,7 @@ import type {
   InstanceStatus,
   ListContent,
   SendResult,
+  MediaResult,
   SendTextOptions,
   WebhookConfig,
 } from '../../core/interfaces/CommunicationProvider.js';
@@ -155,6 +156,28 @@ export class EvolutionProvider implements CommunicationProvider {
     return results.filter((item) => item.exists === true).map((item) => PhoneNumber.create(item.jid).toString());
   }
 
+  /**
+   * Mídia recebida (ex.: nota de voz) chega criptografada no webhook (Baileys/E2E) — só a
+   * própria Evolution consegue decriptar, usando a mensagem que ela já tem persistida no
+   * Postgres dela (busca por `key.id`, não precisamos saber `mediaKey`/`remoteJid` aqui).
+   * `convertToMp4:false` porque queremos o áudio original (ogg/opus) pra mandar pro Whisper,
+   * não um vídeo. Evolution nunca devolve 200 vazio — toda falha vira erro HTTP, que já sobe
+   * como ProviderApiException via `this.http` (mesmo tratamento dos outros métodos).
+   */
+  async getMediaBase64(instanceId: string, messageId: string): Promise<MediaResult> {
+    const raw = await this.http.post<{ base64?: string; mimetype?: string }>(
+      `/chat/getBase64FromMediaMessage/${instanceId}`,
+      { message: { key: { id: messageId } }, convertToMp4: false },
+    );
+
+    if (!raw?.base64 || !raw?.mimetype) {
+      this.logger.warn('getMediaBase64: resposta inesperada', { provider: this.name, instanceId, messageId });
+      throw new Error('Resposta inesperada de getBase64FromMediaMessage.');
+    }
+
+    return { base64: raw.base64, mimetype: raw.mimetype, raw };
+  }
+
   // ==========================================================================
   // Mensagens
   // ==========================================================================
@@ -177,6 +200,11 @@ export class EvolutionProvider implements CommunicationProvider {
       media: mediaUrl,
       caption,
     });
+    return this.toSendResult(raw);
+  }
+
+  async sendSticker(instanceId: string, to: string, mediaUrl: string): Promise<SendResult> {
+    const raw = await this.http.post(`/message/sendSticker/${instanceId}`, { number: to, sticker: mediaUrl });
     return this.toSendResult(raw);
   }
 

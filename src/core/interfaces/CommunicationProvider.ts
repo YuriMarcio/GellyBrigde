@@ -133,6 +133,12 @@ export interface SendResult {
   raw: unknown;
 }
 
+export interface MediaResult {
+  base64: string;
+  mimetype: string;
+  raw: unknown;
+}
+
 /**
  * Contrato único que Evolution, Z-API e Meta Cloud API implementam. Nenhuma camada acima
  * (application/use-cases, SDK) conhece detalhes de um provider específico — tudo passa por
@@ -156,9 +162,18 @@ export interface CommunicationProvider {
   getStatus(instanceId: string): Promise<InstanceStatus>;
   setWebhook(instanceId: string, config: WebhookConfig): Promise<void>;
   checkNumbers(instanceId: string, numbers: string[]): Promise<string[]>;
+  /**
+   * Busca uma mídia recebida (ex.: nota de voz) já decriptada, em base64 — pra providers
+   * Baileys (Evolution/Z-API) a mídia chega criptografada no webhook, só o próprio provider
+   * consegue decriptar. Lança UnsupportedProviderOperationException onde não fizer sentido
+   * (ex.: Meta Cloud API tem seu próprio fluxo de media ID, ainda não implementado aqui).
+   */
+  getMediaBase64(instanceId: string, messageId: string): Promise<MediaResult>;
 
   sendText(instanceId: string, to: string, text: string, options?: SendTextOptions): Promise<SendResult>;
   sendImage(instanceId: string, to: string, mediaUrl: string, caption?: string): Promise<SendResult>;
+  /** `mediaUrl` deve apontar para um WEBP — é o único formato que os 3 providers renderizam como sticker nativo (não como imagem comum). */
+  sendSticker(instanceId: string, to: string, mediaUrl: string): Promise<SendResult>;
   sendAudio(instanceId: string, to: string, mediaUrl: string): Promise<SendResult>;
   sendVideo(instanceId: string, to: string, mediaUrl: string, caption?: string): Promise<SendResult>;
   sendDocument(instanceId: string, to: string, mediaUrl: string, fileName: string): Promise<SendResult>;

@@ -10,6 +10,7 @@ import type {
   InstanceStatus,
   ListContent,
   SendResult,
+  MediaResult,
   SendTextOptions,
   WebhookConfig,
 } from '../../core/interfaces/CommunicationProvider.js';
@@ -128,6 +129,14 @@ export class MetaCloudApiProvider implements CommunicationProvider {
     );
   }
 
+  async getMediaBase64(): Promise<MediaResult> {
+    throw new UnsupportedProviderOperationException(
+      this.name,
+      'getMediaBase64',
+      'Ainda não implementado para Meta Cloud API — usa media_id + /media, fluxo diferente do Baileys.',
+    );
+  }
+
   // ==========================================================================
   // Mensagens
   // ==========================================================================
@@ -139,6 +148,11 @@ export class MetaCloudApiProvider implements CommunicationProvider {
 
   async sendImage(_instanceId: string, to: string, mediaUrl: string, caption?: string): Promise<SendResult> {
     const raw = await this.sendMessage(to, 'image', { link: mediaUrl, caption });
+    return this.toSendResult(raw);
+  }
+
+  async sendSticker(_instanceId: string, to: string, mediaUrl: string): Promise<SendResult> {
+    const raw = await this.sendMessage(to, 'sticker', { link: mediaUrl });
     return this.toSendResult(raw);
   }
 

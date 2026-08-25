@@ -6,6 +6,7 @@ import type { InstanceRepository } from '../../core/interfaces/InstanceRepositor
 type MessageType =
   | 'text'
   | 'image'
+  | 'sticker'
   | 'audio'
   | 'video'
   | 'document'
@@ -40,6 +41,18 @@ export class MessageController {
     reply.send(await this.dispatch(provider, id, type, body));
   };
 
+  getMedia = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id, messageId } = request.params as { id: string; messageId: string };
+    const instance = await this.instanceRepository.findById(id);
+    if (!instance) {
+      reply.code(404).send({ error: `Instância "${id}" não encontrada.` });
+      return;
+    }
+
+    const provider = await this.instanceProviderRegistry.resolve(id, instance.provider);
+    reply.send(await provider.getMediaBase64(id, messageId));
+  };
+
   private dispatch(
     provider: CommunicationProvider,
     id: string,
@@ -51,6 +64,8 @@ export class MessageController {
         return provider.sendText(id, body['to'] as string, body['text'] as string, body['options'] as never);
       case 'image':
         return provider.sendImage(id, body['to'] as string, body['mediaUrl'] as string, body['caption'] as string | undefined);
+      case 'sticker':
+        return provider.sendSticker(id, body['to'] as string, body['mediaUrl'] as string);
       case 'audio':
         return provider.sendAudio(id, body['to'] as string, body['mediaUrl'] as string);
       case 'video':

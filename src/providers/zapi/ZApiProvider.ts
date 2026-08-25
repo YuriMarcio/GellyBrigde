@@ -8,12 +8,14 @@ import type {
   InstanceStatus,
   ListContent,
   SendResult,
+  MediaResult,
   SendTextOptions,
   WebhookConfig,
 } from '../../core/interfaces/CommunicationProvider.js';
 import type { EventPublisher } from '../../core/interfaces/EventPublisher.js';
 import type { Logger } from '../../core/interfaces/Logger.js';
 import { PhoneNumber } from '../../core/value-objects/PhoneNumber.js';
+import { UnsupportedProviderOperationException } from '../../core/exceptions/UnsupportedProviderOperationException.js';
 import {
   ConnectionLost,
   InstanceConnected,
@@ -31,9 +33,9 @@ import type { ZApiProviderConfig } from '../../contracts/dto/index.js';
  * Adapter da Z-API (developer.z-api.io). Os paths abaixo foram confirmados individualmente
  * na documentação (send-button-list, send-carousel, contacts/get-iswhatsapp-batch,
  * instance/status, instance/disconnect, update-webhook-received-delivery); send-image,
- * send-audio, send-video, send-document e send-reaction seguem a mesma convenção de nomes
- * da Z-API mas não foram confirmados com um payload de exemplo — validar contra uma
- * instância real antes de depender deles em produção.
+ * send-audio, send-video, send-document, send-sticker e send-reaction seguem a mesma
+ * convenção de nomes da Z-API mas não foram confirmados com um payload de exemplo — validar
+ * contra uma instância real antes de depender deles em produção.
  */
 export class ZApiProvider implements CommunicationProvider {
   readonly name = 'zapi' as const;
@@ -122,6 +124,14 @@ export class ZApiProvider implements CommunicationProvider {
     return results.filter((item) => item.exists === true).map((item) => PhoneNumber.create(item.outputPhone).toString());
   }
 
+  async getMediaBase64(): Promise<MediaResult> {
+    throw new UnsupportedProviderOperationException(
+      this.name,
+      'getMediaBase64',
+      'Ainda não implementado para Z-API — precisa mapear o endpoint de mídia decriptada específico dela.',
+    );
+  }
+
   // ==========================================================================
   // Mensagens
   // ==========================================================================
@@ -137,6 +147,11 @@ export class ZApiProvider implements CommunicationProvider {
 
   async sendImage(_instanceId: string, to: string, mediaUrl: string, caption = ''): Promise<SendResult> {
     const raw = await this.http.post('/send-image', { phone: to, image: mediaUrl, caption });
+    return this.toSendResult(raw);
+  }
+
+  async sendSticker(_instanceId: string, to: string, mediaUrl: string): Promise<SendResult> {
+    const raw = await this.http.post('/send-sticker', { phone: to, sticker: mediaUrl });
     return this.toSendResult(raw);
   }
 
