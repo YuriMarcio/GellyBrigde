@@ -18,6 +18,7 @@ function fakeEvolutionProvider(): CommunicationProvider {
     checkNumbers: async () => [],
     sendText: async () => ({ raw: null }),
     sendImage: async () => ({ raw: null }),
+    sendSticker: async () => ({ raw: null }),
     sendAudio: async () => ({ raw: null }),
     sendVideo: async () => ({ raw: null }),
     sendDocument: async () => ({ raw: null }),

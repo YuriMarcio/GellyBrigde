@@ -5,6 +5,9 @@ import type {
   CarouselProviderOptions,
   CommunicationProvider,
   ConnectResult,
+  CreateGroupResult,
+  GroupInviteCode,
+  GroupParticipantResult,
   InstanceStatus,
   ListContent,
   SendResult,
@@ -249,6 +252,28 @@ export class ZApiProvider implements CommunicationProvider {
   async sendReaction(_instanceId: string, to: string, messageId: string, emoji: string): Promise<SendResult> {
     const raw = await this.http.post('/send-reaction', { phone: to, messageId, reaction: emoji });
     return this.toSendResult(raw);
+  }
+
+  /**
+   * A Z-API tem endpoints de grupo (`/create-group`, `/add-participant`, etc.) mas este
+   * provider ainda não está registrado em buildServer.ts (só Evolution está ativo hoje) —
+   * ainda não implementado aqui pra não arriscar um contrato de payload não testado contra a
+   * Z-API real. Implementar quando a Z-API for de fato colocada em produção.
+   */
+  async createGroup(): Promise<CreateGroupResult> {
+    throw new UnsupportedProviderOperationException(this.name, 'createGroup', 'Ainda não implementado para Z-API.');
+  }
+
+  async addGroupParticipants(): Promise<GroupParticipantResult[]> {
+    throw new UnsupportedProviderOperationException(this.name, 'addGroupParticipants', 'Ainda não implementado para Z-API.');
+  }
+
+  async promoteGroupAdmins(): Promise<void> {
+    throw new UnsupportedProviderOperationException(this.name, 'promoteGroupAdmins', 'Ainda não implementado para Z-API.');
+  }
+
+  async getGroupInviteCode(): Promise<GroupInviteCode> {
+    throw new UnsupportedProviderOperationException(this.name, 'getGroupInviteCode', 'Ainda não implementado para Z-API.');
   }
 
   private toSendResult(raw: unknown): SendResult {

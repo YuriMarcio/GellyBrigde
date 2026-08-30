@@ -13,6 +13,7 @@ function fakeProvider(name: CommunicationProvider['name']): CommunicationProvide
     checkNumbers: vi.fn(async () => ['5598999990000']),
     sendText: vi.fn(async () => ({ raw: { from: name } })),
     sendImage: vi.fn(async () => ({ raw: null })),
+    sendSticker: vi.fn(async () => ({ raw: null })),
     sendAudio: vi.fn(async () => ({ raw: null })),
     sendVideo: vi.fn(async () => ({ raw: null })),
     sendDocument: vi.fn(async () => ({ raw: null })),

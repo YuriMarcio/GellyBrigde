@@ -5,6 +5,9 @@ import type {
   CarouselProviderOptions,
   CommunicationProvider,
   ConnectResult,
+  CreateGroupResult,
+  GroupInviteCode,
+  GroupParticipantResult,
   InstanceStatus,
   ListContent,
   SendResult,
@@ -311,6 +314,84 @@ export class EvolutionProvider implements CommunicationProvider {
       },
     });
     return this.toSendResult(raw);
+  }
+
+  // ==========================================================================
+  // Grupos
+  // ==========================================================================
+
+  /**
+   * `participants` vai sem `@s.whatsapp.net` — a Evolution aceita só os dígitos nesse
+   * endpoint (diferente de `sendText`, que espera JID completo). O campo de retorno com o JID
+   * do grupo varia entre versões da Evolution (`id` na maioria, `gid` em algumas) — checa os
+   * dois antes de falhar.
+   */
+  async createGroup(instanceId: string, subject: string, participants: string[]): Promise<CreateGroupResult> {
+    const digits = participants.map((phone) => PhoneNumber.create(phone).toString());
+    const raw = await this.http.post<Record<string, unknown>>(`/group/create/${instanceId}`, {
+      subject,
+      participants: digits,
+    });
+
+    const groupJid = (raw['id'] as string | undefined) ?? (raw['gid'] as string | undefined);
+    if (!groupJid) {
+      this.logger.warn('createGroup: resposta sem JID do grupo', { provider: this.name, instanceId, raw });
+      throw new Error('Resposta inesperada de /group/create: JID do grupo ausente.');
+    }
+
+    return {
+      groupJid,
+      subject,
+      participants: digits.map((jid) => ({ jid, status: 'added' as const })),
+      raw,
+    };
+  }
+
+  /**
+   * Retorno da Evolution é best-effort por participante (um número inválido não derruba os
+   * demais) — normaliza pra `GroupParticipantResult[]`, tratando qualquer formato de resposta
+   * que não seja um array reconhecível como "resultado desconhecido, mas a chamada não
+   * lançou erro HTTP" (assume `added` pra não bloquear o fluxo por um formato de resposta
+   * imprevisto; a fonte de verdade real é o próprio grupo no WhatsApp).
+   */
+  async addGroupParticipants(instanceId: string, groupJid: string, participants: string[]): Promise<GroupParticipantResult[]> {
+    const digits = participants.map((phone) => PhoneNumber.create(phone).toString());
+    const raw = await this.http.put<unknown>(`/group/updateParticipant/${instanceId}?groupJid=${encodeURIComponent(groupJid)}`, {
+      action: 'add',
+      participants: digits,
+    });
+
+    if (!Array.isArray(raw)) {
+      return digits.map((jid) => ({ jid, status: 'added' as const }));
+    }
+
+    return raw.map((entry, index) => {
+      const item = entry as { status?: string | number; jid?: string };
+      const succeeded = item.status === undefined || String(item.status) === '200' || String(item.status) === 'success';
+      return { jid: item.jid ?? digits[index], status: succeeded ? 'added' : 'failed' };
+    });
+  }
+
+  async promoteGroupAdmins(instanceId: string, groupJid: string, participants: string[]): Promise<void> {
+    const digits = participants.map((phone) => PhoneNumber.create(phone).toString());
+    await this.http.put(`/group/updateParticipant/${instanceId}?groupJid=${encodeURIComponent(groupJid)}`, {
+      action: 'promote',
+      participants: digits,
+    });
+  }
+
+  async getGroupInviteCode(instanceId: string, groupJid: string): Promise<GroupInviteCode> {
+    const raw = await this.http.get<{ inviteCode?: string; inviteUrl?: string }>(
+      `/group/inviteCode/${instanceId}?groupJid=${encodeURIComponent(groupJid)}`,
+    );
+
+    const code = raw.inviteCode;
+    if (!code) {
+      this.logger.warn('getGroupInviteCode: resposta sem inviteCode', { provider: this.name, instanceId, groupJid, raw });
+      throw new Error('Resposta inesperada de /group/inviteCode: código ausente.');
+    }
+
+    return { code, url: raw.inviteUrl ?? `https://chat.whatsapp.com/${code}` };
   }
 
   // ==========================================================================

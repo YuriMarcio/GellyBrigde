@@ -7,6 +7,9 @@ import type {
   CarouselProviderOptions,
   CommunicationProvider,
   ConnectResult,
+  CreateGroupResult,
+  GroupInviteCode,
+  GroupParticipantResult,
   InstanceStatus,
   ListContent,
   SendResult,
@@ -186,6 +189,22 @@ export class MetaCloudApiProvider implements CommunicationProvider {
   async sendReaction(_instanceId: string, to: string, messageId: string, emoji: string): Promise<SendResult> {
     const raw = await this.sendMessage(to, 'reaction', { message_id: messageId, emoji });
     return this.toSendResult(raw);
+  }
+
+  async createGroup(): Promise<CreateGroupResult> {
+    throw new UnsupportedProviderOperationException(this.name, 'createGroup', 'Cloud API não tem conceito de grupos — é 1:1 ou template broadcast.');
+  }
+
+  async addGroupParticipants(): Promise<GroupParticipantResult[]> {
+    throw new UnsupportedProviderOperationException(this.name, 'addGroupParticipants', 'Cloud API não tem conceito de grupos.');
+  }
+
+  async promoteGroupAdmins(): Promise<void> {
+    throw new UnsupportedProviderOperationException(this.name, 'promoteGroupAdmins', 'Cloud API não tem conceito de grupos.');
+  }
+
+  async getGroupInviteCode(): Promise<GroupInviteCode> {
+    throw new UnsupportedProviderOperationException(this.name, 'getGroupInviteCode', 'Cloud API não tem conceito de grupos.');
   }
 
   async sendButtons(_instanceId: string, to: string, content: ButtonsContent): Promise<SendResult> {

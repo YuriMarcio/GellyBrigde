@@ -139,6 +139,26 @@ export interface MediaResult {
   raw: unknown;
 }
 
+export interface GroupParticipantResult {
+  jid: string;
+  status: 'added' | 'failed' | 'already_member';
+}
+
+export interface CreateGroupResult {
+  /** JID do grupo recém-criado (ex.: "120363012345678901@g.us") — chave usada em todas as
+   *  operações subsequentes desse grupo (add/promote/inviteCode/sendText). */
+  groupJid: string;
+  subject: string;
+  participants: GroupParticipantResult[];
+  raw: unknown;
+}
+
+export interface GroupInviteCode {
+  code: string;
+  /** Link pronto pra compartilhar (`https://chat.whatsapp.com/{code}`). */
+  url: string;
+}
+
 /**
  * Contrato único que Evolution, Z-API e Meta Cloud API implementam. Nenhuma camada acima
  * (application/use-cases, SDK) conhece detalhes de um provider específico — tudo passa por
@@ -195,6 +215,19 @@ export interface CommunicationProvider {
     providerOptions?: CarouselProviderOptions,
   ): Promise<SendResult>;
   sendReaction(instanceId: string, to: string, messageId: string, emoji: string): Promise<SendResult>;
+
+  /**
+   * Cria um grupo de WhatsApp já com os participantes iniciais. `participants` deve ter pelo
+   * menos 1 número (WhatsApp não permite grupo sem nenhum membro além do criador). Lança
+   * UnsupportedProviderOperationException na Meta Cloud API (não existe API de grupos ali).
+   */
+  createGroup(instanceId: string, subject: string, participants: string[]): Promise<CreateGroupResult>;
+  /** Adiciona números a um grupo já existente. Retorna o resultado por participante porque a
+   *  operação é parcialmente falha-tolerante (um número inválido não derruba os demais). */
+  addGroupParticipants(instanceId: string, groupJid: string, participants: string[]): Promise<GroupParticipantResult[]>;
+  /** Promove participantes (já membros do grupo) a admin. */
+  promoteGroupAdmins(instanceId: string, groupJid: string, participants: string[]): Promise<void>;
+  getGroupInviteCode(instanceId: string, groupJid: string): Promise<GroupInviteCode>;
 
   /**
    * Normaliza o corpo bruto de um webhook recebido DO provider em eventos de domínio. Recebe

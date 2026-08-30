@@ -326,6 +326,99 @@ describe('EvolutionProvider', () => {
     });
   });
 
+  describe('createGroup', () => {
+    it('cria o grupo com participantes normalizados (só dígitos) e retorna o JID', async () => {
+      const http = getAxios(provider);
+      http['post']!.mockResolvedValueOnce({ data: { id: '120363012345678901@g.us', subject: 'Entregadores Centro' } });
+
+      const result = await provider.createGroup('inst-01', 'Entregadores Centro', ['(55) 98999-0000', '5511000000000']);
+
+      expect(http['post']).toHaveBeenCalledWith('/group/create/inst-01', {
+        subject: 'Entregadores Centro',
+        participants: ['55989990000', '5511000000000'],
+      });
+      expect(result.groupJid).toBe('120363012345678901@g.us');
+      expect(result.participants).toEqual([
+        { jid: '55989990000', status: 'added' },
+        { jid: '5511000000000', status: 'added' },
+      ]);
+    });
+
+    it('lança erro quando a resposta não traz o JID do grupo', async () => {
+      const http = getAxios(provider);
+      http['post']!.mockResolvedValueOnce({ data: {} });
+
+      await expect(provider.createGroup('inst-01', 'Grupo', ['5511000000000'])).rejects.toThrow(
+        'JID do grupo ausente',
+      );
+    });
+  });
+
+  describe('addGroupParticipants', () => {
+    it('adiciona participantes e normaliza o resultado por status', async () => {
+      const http = getAxios(provider);
+      http['put']!.mockResolvedValueOnce({
+        data: [
+          { jid: '5511000000000', status: '200' },
+          { jid: '5521000000000', status: '403' },
+        ],
+      });
+
+      const result = await provider.addGroupParticipants('inst-01', '123@g.us', ['5511000000000', '5521000000000']);
+
+      expect(http['put']).toHaveBeenCalledWith('/group/updateParticipant/inst-01?groupJid=123%40g.us', {
+        action: 'add',
+        participants: ['5511000000000', '5521000000000'],
+      });
+      expect(result).toEqual([
+        { jid: '5511000000000', status: 'added' },
+        { jid: '5521000000000', status: 'failed' },
+      ]);
+    });
+
+    it('assume "added" quando a resposta não é um array reconhecível', async () => {
+      const http = getAxios(provider);
+      http['put']!.mockResolvedValueOnce({ data: {} });
+
+      const result = await provider.addGroupParticipants('inst-01', '123@g.us', ['5511000000000']);
+
+      expect(result).toEqual([{ jid: '5511000000000', status: 'added' }]);
+    });
+  });
+
+  describe('promoteGroupAdmins', () => {
+    it('envia action=promote pros participantes informados', async () => {
+      const http = getAxios(provider);
+      http['put']!.mockResolvedValueOnce({ data: {} });
+
+      await provider.promoteGroupAdmins('inst-01', '123@g.us', ['5511000000000']);
+
+      expect(http['put']).toHaveBeenCalledWith('/group/updateParticipant/inst-01?groupJid=123%40g.us', {
+        action: 'promote',
+        participants: ['5511000000000'],
+      });
+    });
+  });
+
+  describe('getGroupInviteCode', () => {
+    it('monta a URL de convite a partir do código', async () => {
+      const http = getAxios(provider);
+      http['get']!.mockResolvedValueOnce({ data: { inviteCode: 'AbCdEfG123' } });
+
+      const result = await provider.getGroupInviteCode('inst-01', '123@g.us');
+
+      expect(http['get']).toHaveBeenCalledWith('/group/inviteCode/inst-01?groupJid=123%40g.us');
+      expect(result).toEqual({ code: 'AbCdEfG123', url: 'https://chat.whatsapp.com/AbCdEfG123' });
+    });
+
+    it('lança erro quando a resposta não traz inviteCode', async () => {
+      const http = getAxios(provider);
+      http['get']!.mockResolvedValueOnce({ data: {} });
+
+      await expect(provider.getGroupInviteCode('inst-01', '123@g.us')).rejects.toThrow('código ausente');
+    });
+  });
+
   describe('parseWebhookPayload', () => {
     function payload(body: unknown): Buffer {
       return Buffer.from(JSON.stringify(body));
