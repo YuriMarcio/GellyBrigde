@@ -59,6 +59,10 @@ export interface MessageReceivedPayload {
   from: string;
   messageId: string;
   content: unknown;
+  /** true quando a mensagem veio de um grupo — `from` já é o participante real, não o grupo. */
+  isGroup?: boolean;
+  /** JID do grupo (ex.: "120363...@g.us"), presente só quando isGroup=true. */
+  groupJid?: string;
 }
 export const MessageReceived = (provider: string, instanceId: string, payload: MessageReceivedPayload) =>
   createEvent('MessageReceived', provider, instanceId, payload);

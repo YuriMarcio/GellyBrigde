@@ -303,11 +303,18 @@ export class ZApiProvider implements CommunicationProvider {
     }
 
     if (typeof body['phone'] === 'string' && (body['text'] || body['image'] || body['audio'] || body['document'])) {
+      // Em mensagem de grupo a Z-API manda `phone` = grupo e `participantPhone` = quem mandou
+      // de fato — mesma distinção aplicada no EvolutionProvider.
+      const isGroup = body['isGroup'] === true;
+      const participantPhone = typeof body['participantPhone'] === 'string' ? body['participantPhone'] : undefined;
+
       return [
         MessageReceived(this.name, instanceId, {
-          from: PhoneNumber.create(String(body['phone'])).toString(),
+          from: PhoneNumber.create(isGroup && participantPhone ? participantPhone : String(body['phone'])).toString(),
           messageId: String(body['messageId'] ?? ''),
           content: body,
+          isGroup,
+          groupJid: isGroup ? String(body['phone']) : undefined,
         }),
       ];
     }

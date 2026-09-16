@@ -414,13 +414,24 @@ export class EvolutionProvider implements CommunicationProvider {
 
     switch (body.event) {
       case 'messages.upsert': {
-        const key = data['key'] as { id?: string; remoteJid?: string; fromMe?: boolean } | undefined;
+        const key = data['key'] as
+          | { id?: string; remoteJid?: string; participant?: string; fromMe?: boolean }
+          | undefined;
         if (key?.fromMe) return [];
+
+        // Em mensagem de grupo, `remoteJid` é o JID do GRUPO — quem mandou de fato é
+        // `participant`. Sem essa distinção, todo clique de motoboy dentro de um grupo de
+        // entrega era atribuído ao número do GRUPO, nunca ao motoboy.
+        const isGroup = typeof key?.remoteJid === 'string' && key.remoteJid.endsWith('@g.us');
+        const senderJid = isGroup ? key?.participant : key?.remoteJid;
+
         return [
           MessageReceived(this.name, instanceId, {
-            from: key?.remoteJid ? PhoneNumber.create(key.remoteJid).toString() : 'unknown',
+            from: senderJid ? PhoneNumber.create(senderJid).toString() : 'unknown',
             messageId: key?.id ?? '',
             content: data['message'],
+            isGroup,
+            groupJid: isGroup ? key?.remoteJid : undefined,
           }),
         ];
       }
