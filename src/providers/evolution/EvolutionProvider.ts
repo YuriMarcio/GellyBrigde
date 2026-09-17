@@ -425,6 +425,20 @@ export class EvolutionProvider implements CommunicationProvider {
         const isGroup = typeof key?.remoteJid === 'string' && key.remoteJid.endsWith('@g.us');
         const senderJid = isGroup ? key?.participant : key?.remoteJid;
 
+        // TEMP: `participant` às vezes vem como LID (WhatsApp esconde o número real do
+        // participante — algo tipo "1234567890@lid" em vez de "@s.whatsapp.net"), e
+        // PhoneNumber.create não reconhecia o sufixo, corrompendo o LID num "telefone" falso
+        // em vez de recusar. Log incondicional do `key` inteiro em toda mensagem de grupo pra
+        // achar o campo onde a Evolution expõe o número real (Baileys costuma ter
+        // `participantAlt`/`remoteJidAlt` nesse cenário) — remover depois de confirmado.
+        if (isGroup) {
+          this.logger.warn('parseWebhookPayload: mensagem de grupo recebida.', {
+            provider: this.name,
+            instanceId,
+            rawKey: data['key'],
+          });
+        }
+
         return [
           MessageReceived(this.name, instanceId, {
             from: senderJid ? PhoneNumber.create(senderJid).toString() : 'unknown',
