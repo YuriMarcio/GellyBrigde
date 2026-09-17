@@ -415,7 +415,14 @@ export class EvolutionProvider implements CommunicationProvider {
     switch (body.event) {
       case 'messages.upsert': {
         const key = data['key'] as
-          | { id?: string; remoteJid?: string; participant?: string; fromMe?: boolean }
+          | {
+              id?: string;
+              remoteJid?: string;
+              participant?: string;
+              participantAlt?: string;
+              addressingMode?: string;
+              fromMe?: boolean;
+            }
           | undefined;
         if (key?.fromMe) return [];
 
@@ -423,21 +430,16 @@ export class EvolutionProvider implements CommunicationProvider {
         // `participant`. Sem essa distinção, todo clique de motoboy dentro de um grupo de
         // entrega era atribuído ao número do GRUPO, nunca ao motoboy.
         const isGroup = typeof key?.remoteJid === 'string' && key.remoteJid.endsWith('@g.us');
-        const senderJid = isGroup ? key?.participant : key?.remoteJid;
 
-        // TEMP: `participant` às vezes vem como LID (WhatsApp esconde o número real do
-        // participante — algo tipo "1234567890@lid" em vez de "@s.whatsapp.net"), e
-        // PhoneNumber.create não reconhecia o sufixo, corrompendo o LID num "telefone" falso
-        // em vez de recusar. Log incondicional do `key` inteiro em toda mensagem de grupo pra
-        // achar o campo onde a Evolution expõe o número real (Baileys costuma ter
-        // `participantAlt`/`remoteJidAlt` nesse cenário) — remover depois de confirmado.
-        if (isGroup) {
-          this.logger.warn('parseWebhookPayload: mensagem de grupo recebida.', {
-            provider: this.name,
-            instanceId,
-            rawKey: data['key'],
-          });
-        }
+        // Com "addressingMode: lid" o WhatsApp esconde o número do participante atrás de um
+        // LID ("...@lid" em vez de "...@s.whatsapp.net") — PhoneNumber.create não reconhecia
+        // esse sufixo e corrompia o LID num "telefone" falso (dígitos do LID sobrevivendo à
+        // limpeza), quebrando qualquer match por telefone no consumidor (ex.: motoboy nunca
+        // era encontrado ao aceitar uma corrida). `participantAlt` é o companion da Baileys
+        // com o JID de telefone de verdade nesse cenário — confirmado inspecionando um evento
+        // real: participant="...@lid", participantAlt="55...@s.whatsapp.net".
+        const groupSenderJid = key?.participant?.endsWith('@lid') ? (key?.participantAlt ?? key?.participant) : key?.participant;
+        const senderJid = isGroup ? groupSenderJid : key?.remoteJid;
 
         return [
           MessageReceived(this.name, instanceId, {
