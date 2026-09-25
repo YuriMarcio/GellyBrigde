@@ -86,6 +86,14 @@ export class MetaCloudApiProvider implements CommunicationProvider {
     );
   }
 
+  async getPairingCode(): Promise<ConnectResult> {
+    throw new UnsupportedProviderOperationException(
+      this.name,
+      'getPairingCode',
+      'Cloud API não usa código de pareamento — número é provisionado direto no Meta Business Manager/Embedded Signup.',
+    );
+  }
+
   async disconnect(): Promise<void> {
     throw new UnsupportedProviderOperationException(
       this.name,

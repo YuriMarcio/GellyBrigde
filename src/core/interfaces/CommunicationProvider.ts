@@ -117,8 +117,9 @@ export interface CarouselProviderOptions {
 }
 
 export interface ConnectResult {
-  status: 'connected' | 'connecting' | 'qr_required';
+  status: 'connected' | 'connecting' | 'qr_required' | 'pairing_code_required';
   qrCode?: string;
+  pairingCode?: string;
   raw?: unknown;
 }
 
@@ -178,6 +179,13 @@ export interface CommunicationProvider {
    * UnsupportedProviderOperationException na Meta (não existe conceito de QR na Cloud API).
    */
   getQrCode(instanceId: string): Promise<ConnectResult>;
+  /**
+   * Código de pareamento (8 dígitos) pra vincular via "Conectar com número de telefone" em vez
+   * de escanear QR — mesma instância já existente, sem recriar. `phoneNumber` é o número DONO
+   * da conta a ser pareada (não um destinatário de mensagem). Lança
+   * UnsupportedProviderOperationException em providers sem esse conceito (ex.: Meta Cloud API).
+   */
+  getPairingCode(instanceId: string, phoneNumber: string): Promise<ConnectResult>;
   disconnect(instanceId: string): Promise<void>;
   getStatus(instanceId: string): Promise<InstanceStatus>;
   setWebhook(instanceId: string, config: WebhookConfig): Promise<void>;

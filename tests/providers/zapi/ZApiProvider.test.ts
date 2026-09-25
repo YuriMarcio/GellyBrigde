@@ -2,6 +2,7 @@ import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ZApiProvider } from '../../../src/providers/zapi/ZApiProvider.js';
 import { ConsoleLogger } from '../../../src/infrastructure/logging/ConsoleLogger.js';
+import { UnsupportedProviderOperationException } from '../../../src/core/exceptions/UnsupportedProviderOperationException.js';
 
 vi.mock('axios', async () => {
   const actual = await vi.importActual<typeof axios>('axios');
@@ -45,6 +46,10 @@ describe('ZApiProvider', () => {
     expect(qrResult.qrCode).toBe('data:image/png;base64,BBB');
 
     expect(http['get']).toHaveBeenCalledWith('/instance/qrcode');
+  });
+
+  it('getPairingCode lança UnsupportedProviderOperationException (não implementado pra Z-API ainda)', async () => {
+    await expect(provider.getPairingCode('inst-01', '5511999998888')).rejects.toThrow(UnsupportedProviderOperationException);
   });
 
   it('sendText envia phone/message no payload', async () => {

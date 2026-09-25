@@ -87,6 +87,26 @@ export class InstanceController {
     reply.send(await provider.getQrCode(id));
   };
 
+  /**
+   * Código de pareamento (8 dígitos) pra vincular via número de telefone em vez de QR — não
+   * recria a instância. `number` (query string) é obrigatório: o código é vinculado a um
+   * telefone específico, não dá pra gerar sem saber qual.
+   */
+  getPairingCode = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { id } = request.params as { id: string };
+    const { number } = request.query as { number?: string };
+    if (!number) {
+      reply.code(400).send({ error: 'Parâmetro "number" (telefone) é obrigatório.' });
+      return;
+    }
+
+    const instance = await this.requireInstance(id, reply);
+    if (!instance) return;
+
+    const provider = await this.instanceProviderRegistry.resolve(id, instance.provider);
+    reply.send(await provider.getPairingCode(id, number));
+  };
+
   disconnect = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const { id } = request.params as { id: string };
     const instance = await this.requireInstance(id, reply);

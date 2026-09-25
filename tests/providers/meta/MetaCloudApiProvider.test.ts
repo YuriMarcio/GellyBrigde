@@ -133,6 +133,10 @@ describe('MetaCloudApiProvider', () => {
     await expect(provider.getQrCode('inst-01')).rejects.toThrow(UnsupportedProviderOperationException);
   });
 
+  it('getPairingCode lança UnsupportedProviderOperationException (Cloud API não usa código de pareamento)', async () => {
+    await expect(provider.getPairingCode('inst-01', '5511999998888')).rejects.toThrow(UnsupportedProviderOperationException);
+  });
+
   it('setWebhook sem wabaId lança UnsupportedProviderOperationException', async () => {
     const providerSemWaba = makeProvider();
     await expect(providerSemWaba.setWebhook('inst-01', { url: 'https://app.test', enabled: true })).rejects.toThrow(

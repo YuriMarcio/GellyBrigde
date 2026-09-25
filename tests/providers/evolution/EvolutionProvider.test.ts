@@ -166,6 +166,43 @@ describe('EvolutionProvider', () => {
     expect(result.qrCode).toBe('data:image/png;base64,DDD');
   });
 
+  it('getPairingCode faz logout antes de buscar o código (mesma cautela do getQrCode) e não recria a instância', async () => {
+    const http = getAxios(provider);
+    http['get']!.mockResolvedValueOnce({ data: { instance: { state: 'close' } } }); // connectionState check
+    http['delete']!.mockResolvedValueOnce({ data: {} });
+    http['get']!.mockResolvedValueOnce({ data: { pairingCode: 'WZYEH1YY', code: '2@longConnStr', count: 1 } });
+
+    const result = await provider.getPairingCode('inst-01', '5511999998888');
+
+    expect(http['post']).not.toHaveBeenCalled();
+    expect(http['delete']).toHaveBeenCalledWith('/instance/logout/inst-01');
+    expect(http['get']).toHaveBeenCalledWith('/instance/connect/inst-01?number=5511999998888');
+    expect(result.status).toBe('pairing_code_required');
+    expect(result.pairingCode).toBe('WZYEH1YY');
+  });
+
+  it('getPairingCode não deslogo instância já conectada — retorna status connected direto', async () => {
+    const http = getAxios(provider);
+    http['get']!.mockResolvedValueOnce({ data: { instance: { state: 'open' } } });
+
+    const result = await provider.getPairingCode('inst-01', '5511999998888');
+
+    expect(http['delete']).not.toHaveBeenCalled();
+    expect(http['get']).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ status: 'connected', raw: { instance: { state: 'open' } } });
+  });
+
+  it('getPairingCode normaliza o telefone antes de mandar (remove formatação)', async () => {
+    const http = getAxios(provider);
+    http['get']!.mockResolvedValueOnce({ data: { instance: { state: 'close' } } });
+    http['delete']!.mockResolvedValueOnce({ data: {} });
+    http['get']!.mockResolvedValueOnce({ data: { pairingCode: 'ABCD1234' } });
+
+    await provider.getPairingCode('inst-01', '+55 (11) 99999-8888');
+
+    expect(http['get']).toHaveBeenCalledWith('/instance/connect/inst-01?number=5511999998888');
+  });
+
   it('getStatus mapeia o state retornado pela Evolution', async () => {
     const http = getAxios(provider);
     http['get']!.mockResolvedValueOnce({ data: { instance: { state: 'open' } } });

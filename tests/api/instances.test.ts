@@ -162,6 +162,49 @@ describe('api/instances', () => {
     expect(response.statusCode).toBe(501);
   });
 
+  it('GET /v1/instances/:id/pairing-code busca um código de pareamento pra uma instância evolution', async () => {
+    const { app } = makeApp({ apiKey: undefined });
+
+    const create = await app.inject({ method: 'POST', url: '/v1/instances', payload: { provider: 'evolution' } });
+    const { instance } = create.json();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/instances/${instance.id}/pairing-code?number=5511999998888`,
+    });
+
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('GET /v1/instances/:id/pairing-code sem o parâmetro number retorna 400', async () => {
+    const { app } = makeApp({ apiKey: undefined });
+
+    const create = await app.inject({ method: 'POST', url: '/v1/instances', payload: { provider: 'evolution' } });
+    const { instance } = create.json();
+
+    const response = await app.inject({ method: 'GET', url: `/v1/instances/${instance.id}/pairing-code` });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('GET /v1/instances/:id/pairing-code em provider Meta (sem suporte) retorna 501', async () => {
+    const { app } = makeApp({ apiKey: undefined });
+
+    const create = await app.inject({
+      method: 'POST',
+      url: '/v1/instances',
+      payload: { provider: 'meta', credentials: { phoneNumberId: 'PHONE_ID', accessToken: 'tok' } },
+    });
+    const { instance } = create.json();
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/v1/instances/${instance.id}/pairing-code?number=5511999998888`,
+    });
+
+    expect(response.statusCode).toBe(501);
+  });
+
   it('GET /v1/instances lista as instâncias criadas', async () => {
     const { app } = makeApp({ apiKey: undefined });
 

@@ -104,6 +104,31 @@ export class EvolutionProvider implements CommunicationProvider {
     return this.fetchQrCode(instanceId);
   }
 
+  /**
+   * Mesma cautela de getQrCode (mesmo endpoint por baixo, só com `?number=` a mais): se a
+   * instância já está `open`, devolve conectado sem mexer em nada. Senão, logout best-effort
+   * antes de pedir o código — evita a Evolution reaproveitar credenciais Baileys de uma
+   * tentativa de pareamento anterior que travaria em "connecting".
+   */
+  async getPairingCode(instanceId: string, phoneNumber: string): Promise<ConnectResult> {
+    const currentStatus = await this.getStatus(instanceId).catch(() => null);
+    if (currentStatus?.state === 'open') {
+      return { status: 'connected', raw: currentStatus.raw };
+    }
+
+    try {
+      await this.http.delete(`/instance/logout/${instanceId}`);
+    } catch (err) {
+      this.logger.debug('Logout antes de gerar código de pareamento falhou (ignorado — instância pode não estar conectada)', {
+        provider: this.name,
+        instanceId,
+        error: String(err),
+      });
+    }
+
+    return this.fetchPairingCode(instanceId, phoneNumber);
+  }
+
   private async fetchQrCode(instanceId: string): Promise<ConnectResult> {
     const raw = await this.http.get<Record<string, unknown>>(`/instance/connect/${instanceId}`);
     const qrCode = this.extractQrCode(raw);
@@ -113,6 +138,16 @@ export class EvolutionProvider implements CommunicationProvider {
     }
 
     return { status: qrCode ? 'qr_required' : 'connecting', qrCode, raw };
+  }
+
+  private async fetchPairingCode(instanceId: string, phoneNumber: string): Promise<ConnectResult> {
+    const number = PhoneNumber.create(phoneNumber).toString();
+    const raw = await this.http.get<Record<string, unknown>>(
+      `/instance/connect/${instanceId}?number=${encodeURIComponent(number)}`,
+    );
+    const pairingCode = this.extractPairingCode(raw);
+
+    return { status: pairingCode ? 'pairing_code_required' : 'connecting', pairingCode, raw };
   }
 
   async disconnect(instanceId: string): Promise<void> {
@@ -482,5 +517,13 @@ export class EvolutionProvider implements CommunicationProvider {
   private extractQrCode(raw: Record<string, unknown>): string | undefined {
     const qrcode = raw['qrcode'] as { base64?: string } | undefined;
     return qrcode?.base64 ?? (raw['base64'] as string | undefined);
+  }
+
+  /**
+   * Só `pairingCode` — o campo `code` da mesma resposta é a string de conexão longa usada
+   * internamente pro QR alternativo, não o código curto que o usuário digita no WhatsApp.
+   */
+  private extractPairingCode(raw: Record<string, unknown>): string | undefined {
+    return raw['pairingCode'] as string | undefined;
   }
 }

@@ -80,6 +80,14 @@ export class ZApiProvider implements CommunicationProvider {
     return this.fetchQrCode(instanceId);
   }
 
+  async getPairingCode(): Promise<ConnectResult> {
+    throw new UnsupportedProviderOperationException(
+      this.name,
+      'getPairingCode',
+      'Ainda não implementado para Z-API — precisa mapear o endpoint de pareamento por número específico dela.',
+    );
+  }
+
   private async fetchQrCode(instanceId: string): Promise<ConnectResult> {
     const raw = await this.http.get<Record<string, unknown>>('/instance/qrcode');
     const qrCode = (raw['value'] as string | undefined) ?? (raw['qrcode'] as string | undefined);
