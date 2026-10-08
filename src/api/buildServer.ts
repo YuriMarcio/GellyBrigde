@@ -9,12 +9,14 @@ import { ConsoleLogger } from '../infrastructure/logging/ConsoleLogger.js';
 import { PostgresInstanceRepository } from '../infrastructure/persistence/PostgresInstanceRepository.js';
 import { EvolutionProvider } from '../providers/evolution/EvolutionProvider.js';
 import { ProviderRegistry } from '../registry/ProviderRegistry.js';
+import { BusinessController } from './controllers/BusinessController.js';
 import { GroupController } from './controllers/GroupController.js';
 import { InstanceController } from './controllers/InstanceController.js';
 import { MessageController } from './controllers/MessageController.js';
 import { WebhookController } from './controllers/WebhookController.js';
 import { createApiKeyAuth } from './middlewares/apiKeyAuth.js';
 import { createErrorHandler } from './middlewares/errorHandler.js';
+import { registerBusinessRoutes } from './routes/business.js';
 import { registerGroupRoutes } from './routes/groups.js';
 import { registerInstanceRoutes } from './routes/instances.js';
 import { registerMessageRoutes } from './routes/messages.js';
@@ -87,6 +89,7 @@ export function buildServer(options: BuildServerOptions = {}): BuiltServer {
   const instanceController = new InstanceController(instanceRepository, instanceProviderRegistry, logger, publicUrl);
   const messageController = new MessageController(instanceRepository, instanceProviderRegistry);
   const groupController = new GroupController(instanceRepository, instanceProviderRegistry);
+  const businessController = new BusinessController(instanceRepository, instanceProviderRegistry);
   const webhookController = new WebhookController(instanceRepository, instanceProviderRegistry, eventPublisher, logger);
 
   // Rotas autenticadas por x-api-key (consumidor → FlowBridge).
@@ -95,6 +98,7 @@ export function buildServer(options: BuildServerOptions = {}): BuiltServer {
     registerInstanceRoutes(scoped, instanceController);
     registerMessageRoutes(scoped, messageController);
     registerGroupRoutes(scoped, groupController);
+    registerBusinessRoutes(scoped, businessController);
   });
 
   // Webhooks são chamados PELO provider (Evolution/Z-API/Meta) — sem x-api-key.

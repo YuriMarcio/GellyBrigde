@@ -108,6 +108,8 @@ export interface InstanceCredentials {
   wabaId?: string;
   apiVersion?: string;
   appSecret?: string;
+  /** Gerado automaticamente na criação da instância quando omitido. */
+  verifyToken?: string;
 }
 
 export interface CreateInstanceApiRequest {

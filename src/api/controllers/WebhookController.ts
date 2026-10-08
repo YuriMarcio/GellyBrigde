@@ -19,16 +19,48 @@ export class WebhookController {
     private readonly logger: Logger,
   ) {}
 
+  /**
+   * Handshake de inscrição (Meta): GET com `hub.mode=subscribe`, `hub.verify_token` e
+   * `hub.challenge`. Responde o challenge em texto puro quando o token confere com o da
+   * instância; qualquer outra coisa é 403. Sem isso a Meta não aceita a URL de callback.
+   */
+  verify = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { provider, instanceId } = request.params as { provider: WhatsAppProviderName; instanceId: string };
+
+    const instance = await this.instanceRepository.findById(instanceId);
+    if (!instance || instance.provider !== provider) {
+      reply.code(404).send({ error: `Instância "${instanceId}" não encontrada para o provider "${provider}".` });
+      return;
+    }
+
+    const providerImpl = await this.instanceProviderRegistry.resolve(instanceId, instance.provider);
+    if (!providerImpl.verifyWebhookSubscription) {
+      reply.code(404).send({ error: `O provider "${provider}" não usa handshake GET de webhook.` });
+      return;
+    }
+
+    const challenge = providerImpl.verifyWebhookSubscription(request.query as Record<string, string | undefined>);
+    if (challenge === null) {
+      this.logger.warn('Handshake de webhook recusado (token inválido)', { provider, instanceId });
+      reply.code(403).send({ error: 'Verificação do webhook recusada.' });
+      return;
+    }
+
+    reply.code(200).type('text/plain').send(challenge);
+  };
+
   receive = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const { provider, instanceId } = request.params as { provider: WhatsAppProviderName; instanceId: string };
 
     const instance = await this.instanceRepository.findById(instanceId);
-    if (!instance) {
-      reply.code(404).send({ error: `Instância "${instanceId}" não encontrada.` });
+    // O provider vem da URL só como parte da rota; quem manda é o provider gravado na instância —
+    // uma URL /webhooks/zapi/{id-de-uma-instância-meta} não pode ser tratada pelo parser errado.
+    if (!instance || instance.provider !== provider) {
+      reply.code(404).send({ error: `Instância "${instanceId}" não encontrada para o provider "${provider}".` });
       return;
     }
 
-    const providerImpl = await this.instanceProviderRegistry.resolve(instanceId, provider);
+    const providerImpl = await this.instanceProviderRegistry.resolve(instanceId, instance.provider);
     const rawBody = (request as unknown as { rawBody?: Buffer }).rawBody ?? Buffer.from(JSON.stringify(request.body ?? {}));
     const headers = this.flattenHeaders(request.headers);
 

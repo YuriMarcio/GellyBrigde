@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { WebhookController } from '../controllers/WebhookController.js';
 
 export function registerWebhookRoutes(app: FastifyInstance, controller: WebhookController): void {
+  // Handshake de inscrição da Meta (hub.challenge) — sem ele a URL de callback não é aceita.
+  app.get('/v1/webhooks/:provider/:instanceId', controller.verify);
   app.post('/v1/webhooks/:provider/:instanceId', controller.receive);
   // A Evolution API, quando "Webhook by Events" está ativo, anexa o nome do evento ao final
   // da URL (ex.: .../webhooks/evolution/{id}/messages-upsert) em vez de mandar tudo pra rota

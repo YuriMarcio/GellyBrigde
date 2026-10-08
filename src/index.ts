@@ -43,6 +43,31 @@ export { PhoneNumber } from './core/value-objects/PhoneNumber.js';
 export { ProviderApiException } from './core/exceptions/ProviderApiException.js';
 export { UnsupportedProviderOperationException } from './core/exceptions/UnsupportedProviderOperationException.js';
 export { ProviderConnectionException } from './core/exceptions/ProviderConnectionException.js';
+export { CustomerServiceWindowClosedException } from './core/exceptions/CustomerServiceWindowClosedException.js';
+
+// Capacidades opcionais (templates, leitura, Coexistence) e a matriz de capacidades em código.
+export {
+  PROVIDER_CAPABILITIES,
+  isCoexistenceManager,
+  isReadReceiptSender,
+  isTemplateManager,
+  isTemplateSender,
+} from './core/interfaces/BusinessCapabilities.js';
+export type {
+  CoexistenceManager,
+  MarkAsReadOptions,
+  PhoneNumberInfo,
+  ProviderCapabilities,
+  ReadReceiptSender,
+  TemplateContent,
+  TemplateDefinition,
+  TemplateInfo,
+  TemplateList,
+  TemplateListQuery,
+  TemplateManager,
+  TemplateSender,
+} from './core/interfaces/BusinessCapabilities.js';
+export type { DomainEvent, NormalizedInboundMessage } from './core/events/index.js';
 
 // ============================================================================
 // API HTTP (api/) — infraestrutura para rodar o FlowBridge como microsserviço,

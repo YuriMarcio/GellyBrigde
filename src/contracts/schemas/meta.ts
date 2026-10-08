@@ -54,7 +54,19 @@ export const MetaListContentSchema = z.object({
   }
 });
 
-export const MetaCarouselProviderOptionsSchema = z.object({
-  templateName: z.string({ required_error: 'templateName é obrigatório para carrossel na Meta Cloud API' }),
-  languageCode: z.string({ required_error: 'languageCode é obrigatório para carrossel na Meta Cloud API' }),
+/** Botão único de link (interactive `cta_url`) — o equivalente Meta de um botão `url` solto. */
+export const MetaCtaUrlContentSchema = z.object({
+  title: z.string().max(60).optional(),
+  body: z.string().max(1024),
+  footer: z.string().max(60).optional(),
+  imageUrl: z.string().optional(),
+  button: z.object({
+    displayText: z.string().min(1).max(20),
+    url: z.string().url(),
+  }),
+});
+
+export const MetaTemplateContentSchema = z.object({
+  name: z.string().min(1).regex(/^[a-z0-9_]+$/, 'name do template: só minúsculas, números e "_"'),
+  languageCode: z.string().min(2),
 });

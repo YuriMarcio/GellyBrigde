@@ -1,6 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { InstanceProviderRegistry } from '../../application/InstanceProviderRegistry.js';
-import type { CommunicationProvider, SendResult } from '../../core/interfaces/CommunicationProvider.js';
+import type { CommunicationProvider } from '../../core/interfaces/CommunicationProvider.js';
+import { UnsupportedProviderOperationException } from '../../core/exceptions/UnsupportedProviderOperationException.js';
+import { isReadReceiptSender, isTemplateSender } from '../../core/interfaces/BusinessCapabilities.js';
 import type { InstanceRepository } from '../../core/interfaces/InstanceRepository.js';
 
 type MessageType =
@@ -14,7 +16,9 @@ type MessageType =
   | 'buttons'
   | 'list'
   | 'carousel'
-  | 'reaction';
+  | 'reaction'
+  | 'template'
+  | 'read';
 
 /**
  * Uma única rota (`POST /v1/instances/:id/messages/:type`) para todos os tipos de mensagem —
@@ -58,7 +62,7 @@ export class MessageController {
     id: string,
     type: MessageType,
     body: Record<string, unknown>,
-  ): Promise<SendResult> {
+  ): Promise<unknown> {
     switch (type) {
       case 'text':
         return provider.sendText(id, body['to'] as string, body['text'] as string, body['options'] as never);
@@ -89,6 +93,26 @@ export class MessageController {
         return provider.sendCarousel(id, body['to'] as string, body['content'] as never, body['providerOptions'] as never);
       case 'reaction':
         return provider.sendReaction(id, body['to'] as string, body['messageId'] as string, body['emoji'] as string);
+      case 'template':
+        if (!isTemplateSender(provider)) {
+          throw new UnsupportedProviderOperationException(
+            provider.name,
+            'sendTemplate',
+            'Template de mensagem é um conceito da Meta Cloud API.',
+          );
+        }
+        return provider.sendTemplate(id, body['to'] as string, body['template'] as never);
+      case 'read':
+        if (!isReadReceiptSender(provider)) {
+          throw new UnsupportedProviderOperationException(
+            provider.name,
+            'markAsRead',
+            'Confirmação de leitura / "digitando..." ainda só está implementada na Meta Cloud API.',
+          );
+        }
+        return provider
+          .markAsRead(id, body['messageId'] as string, { typingIndicator: body['typingIndicator'] === true })
+          .then(() => ({ ok: true }));
       default: {
         const exhaustive: never = type;
         throw new Error(`Tipo de mensagem desconhecido: "${String(exhaustive)}".`);

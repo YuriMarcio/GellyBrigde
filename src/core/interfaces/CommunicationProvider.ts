@@ -84,6 +84,10 @@ export interface WebhookConfig {
 export interface SendTextOptions {
   /** Delay antes do envio, em ms. */
   delayMs?: number;
+  /** Responde citando uma mensagem (reply nativo). Hoje só a Meta aplica; os outros ignoram. */
+  replyToMessageId?: string;
+  /** Pede à Meta para gerar o preview do primeiro link do texto. Os outros ignoram. */
+  previewUrl?: boolean;
 }
 
 export interface ButtonsContent {
@@ -108,8 +112,8 @@ export interface CarouselContent {
 }
 
 /**
- * Opções específicas da Meta Cloud API — o carrossel lá só existe como template
- * pré-aprovado (não é freeform como na Evolution/Z-API). Ignorado pelos outros providers.
+ * Reservado para opções por provider. Hoje nenhum provider usa: a Meta envia o carrossel
+ * interativo (sem template). Mantido para não quebrar quem já passa o parâmetro.
  */
 export interface CarouselProviderOptions {
   templateName?: string;
@@ -243,4 +247,11 @@ export interface CommunicationProvider {
    * X-Hub-Signature-256 sobre os bytes originais antes de qualquer parsing.
    */
   parseWebhookPayload(rawBody: Buffer, headers: Record<string, string>): DomainEvent[];
+
+  /**
+   * Handshake de inscrição de webhook por GET (Meta: `hub.mode`, `hub.verify_token`,
+   * `hub.challenge`). Devolve o `challenge` a ecoar, ou `null` se o token não confere.
+   * Opcional: Evolution e Z-API não fazem esse handshake.
+   */
+  verifyWebhookSubscription?(query: Record<string, string | undefined>): string | null;
 }

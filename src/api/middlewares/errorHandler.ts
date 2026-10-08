@@ -1,4 +1,5 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
+import { CustomerServiceWindowClosedException } from '../../core/exceptions/CustomerServiceWindowClosedException.js';
 import { ProviderApiException } from '../../core/exceptions/ProviderApiException.js';
 import { ProviderConnectionException } from '../../core/exceptions/ProviderConnectionException.js';
 import { UnsupportedProviderOperationException } from '../../core/exceptions/UnsupportedProviderOperationException.js';
@@ -12,6 +13,14 @@ export function createErrorHandler(logger: Logger) {
   return function errorHandler(error: FastifyError | Error, _request: FastifyRequest, reply: FastifyReply): void {
     if (error instanceof UnsupportedProviderOperationException) {
       reply.code(501).send({ error: error.message, provider: error.provider, operation: error.operation });
+      return;
+    }
+
+    if (error instanceof CustomerServiceWindowClosedException) {
+      // 422 com `code` estável: o cliente trata isto (reenviar como template), não é falha do provider.
+      reply
+        .code(422)
+        .send({ error: error.message, code: 'CUSTOMER_SERVICE_WINDOW_CLOSED', provider: error.provider, to: error.to });
       return;
     }
 

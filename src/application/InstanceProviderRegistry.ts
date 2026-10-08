@@ -39,7 +39,7 @@ export class InstanceProviderRegistry {
       return this.sharedRegistry.resolve('evolution');
     }
 
-    const provider = this.buildProvider(providerName, credentials);
+    const provider = this.buildProvider(providerName, credentials, instanceId);
     this.perInstanceProviders.set(instanceId, provider);
     return provider;
   }
@@ -56,7 +56,7 @@ export class InstanceProviderRegistry {
     // persistido na criação da instância.
     const instance = await this.instanceRepository.findById(instanceId);
     if (instance?.credentials) {
-      const provider = this.buildProvider(providerName, instance.credentials as InstanceCredentials);
+      const provider = this.buildProvider(providerName, instance.credentials as InstanceCredentials, instanceId);
       this.perInstanceProviders.set(instanceId, provider);
       return provider;
     }
@@ -68,7 +68,11 @@ export class InstanceProviderRegistry {
     this.perInstanceProviders.delete(instanceId);
   }
 
-  private buildProvider(providerName: Exclude<WhatsAppProviderName, 'evolution'>, credentials?: InstanceCredentials): CommunicationProvider {
+  private buildProvider(
+    providerName: Exclude<WhatsAppProviderName, 'evolution'>,
+    credentials: InstanceCredentials | undefined,
+    instanceId: string,
+  ): CommunicationProvider {
     if (providerName === 'zapi') {
       if (!credentials?.instanceId || !credentials.token) {
         throw new Error('Credenciais da Z-API (instanceId, token) são obrigatórias para criar esta instância.');
@@ -95,7 +99,11 @@ export class InstanceProviderRegistry {
         accessToken: credentials.accessToken,
         wabaId: credentials.wabaId,
         apiVersion: credentials.apiVersion,
-        appSecret: credentials.appSecret,
+        // O App Secret é do app da Meta (igual para todos os números) — cai no global do ambiente.
+        appSecret: credentials.appSecret ?? process.env['WHATSAPP_CLOUD_APP_SECRET'],
+        verifyToken: credentials.verifyToken ?? process.env['WHATSAPP_CLOUD_VERIFY_TOKEN'],
+        // Id lógico da API HTTP: é o que os eventos carregam (não o phoneNumberId).
+        instanceId,
       },
       this.logger,
       this.eventPublisher,

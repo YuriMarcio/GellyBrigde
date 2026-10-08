@@ -235,14 +235,38 @@ await flowBridge.sendCarousel({
 |---|:---:|:---:|:---:|
 | `connect` (instância + QR) | ✅ | ✅ | ⚠️ sem QR — número já vem provisionado; só confirma que está ativo |
 | `disconnect` | ✅ | ✅ | ❌ não existe via API |
-| `getStatus` | ✅ | ✅ | ⚠️ aproximado |
-| `setWebhook` | ✅ | ✅ | ⚠️ só inscreve o app na WABA — URL de callback é manual no App Dashboard |
+| `getStatus` | ✅ | ✅ | ✅ lê o `status` do número na Graph API (`CONNECTED`→open, `PENDING`→connecting, demais→close) |
+| `setWebhook` | ✅ | ✅ | ✅ inscreve o app na WABA e grava o override de callback do número *(precisa de `wabaId`; sem `verifyToken` o callback fica manual)* |
+| `getMediaBase64` | ✅ | ❌ | ✅ pelo `media_id` (`normalized.mediaId`), não pelo id da mensagem |
+| `sendSticker` | ✅ | ✅ | ✅ |
+| `getQrCode` / `getPairingCode` | ✅ | ✅ | ❌ sem conceito na Cloud API |
+| Grupos (`createGroup`, `addGroupParticipants`, `promoteGroupAdmins`, `getGroupInviteCode`) | ✅ | ❌ | ❌ |
 | `checkNumbers` | ✅ | ✅ | ❌ sem endpoint equivalente |
 | `sendText` / `sendImage` / `sendAudio` / `sendVideo` / `sendDocument` / `sendLocation` | ✅ | ✅ | ✅ |
-| `sendButtons` | ✅ | ✅ | ✅ máx. 3 botões, título ≤20 chars *(validado antes da chamada)* |
+| `sendButtons` | ✅ | ✅ | ✅ máx. 3 botões de resposta, título ≤20 chars *(validado)*. **Um** botão `url` vira CTA (`cta_url`); `url`/`call`/`copy` misturados com outros são recusados |
 | `sendList` | ✅ com seções | ✅ seções achatadas em lista única | ✅ máx. 10 seções / 10 linhas *(validado)* |
-| `sendCarousel` | ✅ freeform | ✅ freeform | ⚠️ só via template pré-aprovado — exige `providerOptions.templateName` + `languageCode` |
+| `sendCarousel` | ✅ freeform | ✅ freeform | ✅ **carrossel interativo** (mensagem de serviço: sem template, sem aprovação, só na janela de 24h). Regras validadas antes de chamar: 2–10 cards, corpo principal obrigatório (≤1024), cada card com imagem **JPEG/PNG** por link (WebP não renderiza), texto do card ≤160 caracteres e ≤2 quebras de linha, e **mesmo tipo e quantidade de botões em todos os cards** (UM botão `url` OU botões de resposta, título ≤20, `id` ≤256). `providerOptions` é ignorado |
 | `sendReaction` | ✅ | ✅ | ✅ |
+| `sendTemplate` | ❌ | ❌ | ✅ único jeito de iniciar conversa / responder fora das 24h (inclusive carrossel de **template** de Marketing, via `components`) |
+| Gerenciar templates (listar, criar, apagar) | ❌ | ❌ | ✅ exige `wabaId` |
+| `markAsRead` + "digitando…" | ❌ | ❌ | ✅ |
+| Receber mensagem **normalizada** (`payload.normalized`) | ❌ cru (Baileys) | ❌ | ✅ tipo, texto, `buttonReplyId`, `listReplyId`, `mediaId`, localização... |
+
+> [!NOTE]
+> **Toque em botão na Meta chega em três formatos** e os três viram o mesmo `normalized.buttonReplyId` /
+> `listReplyId` (o id que você enviou): `interactive.button_reply.id` (botões comuns), `interactive.list_reply.id`
+> (lista) e `type: "button"` com `button.payload` (quick reply de template — e, segundo fontes de terceiros, o do
+> carrossel interativo; a referência oficial do webhook só documenta o caso do template). O webhook **não diz qual
+> card foi tocado**: o `id` do botão tem de carregar o que o backend precisa (`flow_add1_loja_12`). Um toque `button`
+> deixa o payload bruto no log (`Meta: toque em botão (type "button") — payload bruto`, nível `info`) para confirmar o
+> formato com o primeiro clique real; `interactive.type` ou `message.type` desconhecidos geram `warn` com o payload
+> bruto em vez de sumir.
+
+> [!TIP]
+> Esta tabela existe em código: `PROVIDER_CAPABILITIES` (`core/interfaces/BusinessCapabilities.ts`),
+> exposta em `GET /v1/instances/:id/capabilities` com os limites de cada provider. Quem monta
+> mensagens deve consultá-la para adaptar o conteúdo em vez de descobrir pelo erro 501/422. Os
+> testes (`tests/providers/CrossProviderContract.test.ts`) travam a tabela contra o comportamento real.
 
 <br>
 
@@ -301,7 +325,19 @@ implementar nada específico de Evolution/Z-API/Meta do outro lado, só receber 
 | `DELETE` | `/v1/instances/:id` | Desconecta (❌ 501 na Meta — sem suporte) |
 | `POST` | `/v1/instances/:id/check-numbers` | Valida números em lote (❌ 501 na Meta) |
 | `POST` | `/v1/instances/:id/messages/:type` | Envia mensagem — `:type` = `text\|image\|audio\|video\|document\|location\|buttons\|list\|carousel\|reaction` |
-| `POST` | `/v1/webhooks/:provider/:instanceId` | Recebida **do** provider — pública, sem `x-api-key` |
+| `POST` | `/v1/instances/:id/messages/template` | Envia template aprovado (só Meta; 501 nos outros) — body `{ to, template: { name, languageCode, header?, bodyParameters?, buttons?, components? } }` |
+| `POST` | `/v1/instances/:id/messages/read` | Marca como lida; `typingIndicator: true` mostra "digitando…" (só Meta) — body `{ messageId, typingIndicator? }` |
+| `GET` | `/v1/instances/:id/media/:messageId` | Mídia recebida em base64. **Na Meta o parâmetro é o `media_id`** (`normalized.mediaId`) |
+| `GET` | `/v1/instances/:id/capabilities` | O que o provider da instância suporta e quais os limites (botões, linhas de lista...) |
+| `GET` `POST` `DELETE` | `/v1/instances/:id/templates[/:name]` | Lista / cria / apaga templates (só Meta, exige `wabaId`) |
+| `GET` | `/v1/instances/:id/coexistence` | Estado do número (`isOnBizApp`, `platformType`) — só Meta |
+| `POST` | `/v1/instances/:id/coexistence/sync` | Body `{ type: "contacts" \| "history" }` — sincronização pós-onboarding (**janela de 24h**) |
+| `GET` | `/v1/webhooks/:provider/:instanceId` | Handshake da Meta (`hub.challenge`) — público |
+| `POST` | `/v1/webhooks/:provider/:instanceId` | Recebida **do** provider — pública, sem `x-api-key`. O provider da URL precisa ser o da instância (senão 404) |
+
+**Erro 422 `CUSTOMER_SERVICE_WINDOW_CLOSED`:** mensagem livre para quem não falou com o número nas
+últimas 24h (Meta, erro 131047). Não é falha do provider: reenvie como template
+(`messages/template`).
 
 ```bash
 curl -X POST https://flowbridge.seudominio.com/v1/instances/SEU_ID/messages/text \
@@ -368,8 +404,9 @@ própria imagem e serve pra load balancer/orquestrador (k8s liveness probe, etc.
 > Exclusivo da Cloud API: o mesmo número continua ativo no **app WhatsApp Business** (celular)
 > **e** na Cloud API ao mesmo tempo, com mensagens espelhadas entre os dois lados.
 
-`MetaCloudApiProvider` expõe métodos extras para isso — ficam fora da interface comum porque
-não têm equivalente nos outros providers:
+Pela API HTTP: `GET /v1/instances/:id/coexistence` (o número está no app?) e
+`POST /v1/instances/:id/coexistence/sync` (`{"type":"contacts"}` e depois `{"type":"history"}`).
+Pelo SDK, `MetaCloudApiProvider` expõe os mesmos métodos:
 
 ```ts
 import { MetaCloudApiProvider } from '@sinal/evolution-client';
@@ -377,9 +414,15 @@ import { MetaCloudApiProvider } from '@sinal/evolution-client';
 const meta = new MetaCloudApiProvider({ name: 'meta', phoneNumberId, accessToken, wabaId }, logger);
 
 await meta.getPhoneNumberInfo();  // { isOnBizApp, platformType }
-await meta.syncContacts();        // sincronização obrigatória pós-onboarding (até 24h)
+await meta.syncContacts();        // sincronização pós-onboarding — janela de 24h
 await meta.syncHistory();
 ```
+
+> [!WARNING]
+> O onboarding que **ativa** o Coexistence (Embedded Signup em modo "conectar app WhatsApp
+> Business existente") acontece na Meta, não aqui — o FlowBridge só cuida do que vem depois. Depois
+> do onboarding você tem **24h** para chamar as duas sincronizações; passou disso, o número
+> precisa sair e refazer o fluxo.
 
 As três chaves de webhook exclusivas de Coexistence — `history`, `smb_app_state_sync`,
 `smb_message_echoes` — precisam ser inscritas **manualmente no App Dashboard da Meta**; não há

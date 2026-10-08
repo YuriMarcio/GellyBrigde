@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { InstanceProviderRegistry } from '../../application/InstanceProviderRegistry.js';
 import type { CreateInstanceApiRequest } from '../../contracts/requests/index.js';
@@ -24,14 +24,21 @@ export class InstanceController {
     const body = request.body as CreateInstanceApiRequest;
     const id = body.instanceId ?? randomUUID();
 
-    const provider = this.instanceProviderRegistry.create(id, body.provider, body.credentials);
+    // O token do handshake GET da Meta é nosso (a Meta só o repete de volta) — gera um se o
+    // chamador não mandou, e devolve na resposta para quem for configurar o App Dashboard.
+    const credentials =
+      body.provider === 'meta' && body.credentials
+        ? { ...body.credentials, verifyToken: body.credentials.verifyToken ?? randomBytes(24).toString('hex') }
+        : body.credentials;
+
+    const provider = this.instanceProviderRegistry.create(id, body.provider, credentials);
 
     await this.instanceRepository.save({
       id,
       provider: body.provider,
       state: 'connecting',
       callbackUrl: body.callbackUrl,
-      credentials: body.credentials as Record<string, string> | undefined,
+      credentials: credentials as Record<string, string> | undefined,
       createdAt: new Date().toISOString(),
     });
 
@@ -58,7 +65,13 @@ export class InstanceController {
       state: connectResult.status === 'connected' ? 'open' : 'connecting',
     });
 
-    reply.code(201).send({ instance: await this.instanceRepository.findById(id), connect: connectResult });
+    reply.code(201).send({
+      instance: await this.instanceRepository.findById(id),
+      connect: connectResult,
+      ...(body.provider === 'meta' && credentials
+        ? { webhook: { callbackUrl: `${this.publicUrl}/v1/webhooks/meta/${id}`, verifyToken: credentials.verifyToken } }
+        : {}),
+    });
   };
 
   list = async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {

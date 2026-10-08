@@ -90,35 +90,6 @@ describe('MetaCloudApiProvider', () => {
     );
   });
 
-  it('sendCarousel exige providerOptions.templateName e languageCode', async () => {
-    await expect(
-      provider.sendCarousel('inst-01', '5598999990000', {
-        body: 'Confira nossos planos',
-        cards: [{ body: 'Plano Pro', buttons: [{ id: 'PRO', displayText: 'Quero esse' }] }],
-      }),
-    ).rejects.toThrow(UnsupportedProviderOperationException);
-  });
-
-  it('sendCarousel monta template quando providerOptions é informado', async () => {
-    const http = getAxios(provider);
-    http['post']!.mockResolvedValueOnce({ data: { messages: [{ id: 'wamid.3' }] } });
-
-    await provider.sendCarousel(
-      'inst-01',
-      '5598999990000',
-      { body: 'Confira nossos planos', cards: [{ body: 'Plano Pro', imageUrl: 'https://img/pro.jpg', buttons: [{ id: 'PRO', displayText: 'Quero esse' }] }] },
-      { templateName: 'planos_carousel', languageCode: 'pt_BR' },
-    );
-
-    expect(http['post']).toHaveBeenCalledWith(
-      '/PHONE_ID/messages',
-      expect.objectContaining({
-        type: 'template',
-        template: expect.objectContaining({ name: 'planos_carousel', language: { code: 'pt_BR' } }),
-      }),
-    );
-  });
-
   it('checkNumbers lança UnsupportedProviderOperationException', async () => {
     await expect(provider.checkNumbers('inst-01', ['5598999990000'])).rejects.toThrow(
       UnsupportedProviderOperationException,

@@ -57,6 +57,13 @@ export interface MetaProviderConfig {
   apiVersion?: string;
   /** Usado para validar a assinatura X-Hub-Signature-256 dos webhooks recebidos. */
   appSecret?: string;
+  /** Token do handshake GET do webhook (`hub.verify_token`). Gerado pela API HTTP na criação da instância. */
+  verifyToken?: string;
+  /**
+   * Id lógico da instância na API HTTP. É o `instanceId` dos eventos emitidos — sem isso cai
+   * em `phoneNumberId`, que só serve no modo SDK (um número por processo).
+   */
+  instanceId?: string;
   throwOnError?: boolean;
   timeout?: number;
 }

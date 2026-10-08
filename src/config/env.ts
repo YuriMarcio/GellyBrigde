@@ -52,6 +52,7 @@ export function readMetaEnv(): MetaProviderConfig | undefined {
     wabaId: process.env['WHATSAPP_CLOUD_WABA_ID'],
     apiVersion: process.env['WHATSAPP_CLOUD_API_VERSION'] ?? 'v23.0',
     appSecret: process.env['WHATSAPP_CLOUD_APP_SECRET'],
+    verifyToken: process.env['WHATSAPP_CLOUD_VERIFY_TOKEN'],
     throwOnError: process.env['WHATSAPP_THROW_ON_ERROR'] !== 'false',
     timeout: Number(process.env['WHATSAPP_TIMEOUT_MS'] ?? 15_000),
   };
